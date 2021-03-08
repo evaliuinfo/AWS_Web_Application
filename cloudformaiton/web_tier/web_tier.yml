@@ -56,10 +56,13 @@ Resources:
               apt-get update -y
               apt-get install unzip awscli -y
               apt-get install apache2 -y
+              curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+              apt-get install -y nodejs
+              apt-get install -y build-essential
               
               systemctl start apache2
               cd /var/www/html
-              aws s3 cp --recursive s3://www.evaliu.info/* .
+              aws s3 cp --recursive s3://www.evaliu.info/ .
               chown -R www-data:www-data .
           ImageId: ami-005bdb005fb00e791
           IamInstanceProfile:
