@@ -1,0 +1,43 @@
+Description: >
+    Eva Liu / AWS 3 Tier Web Application -- web tier 2021 Feb
+
+Parameters:
+    EnvironmentName:
+        Description: An environment name that will be prefixed
+        Type: String
+
+Resources:
+    EC2BucketsInstanceProfile:
+      Type: AWS::IAM::InstanceProfile
+      Properties:
+        Path: "/"
+        Roles:
+        - Ref: EC2AccessRole
+
+    EC2BucketsPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: EC2BucketsPolicy
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:List*
+            Resource: "*"
+        Roles:
+        - Ref: EC2AccessRole
+
+    EC2AccessRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - ec2.amazonaws.com
+            Action:
+            - sts:AssumeRole
+        Path: "/"
+
