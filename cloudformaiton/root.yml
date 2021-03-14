@@ -1,0 +1,71 @@
+Description: >
+    Eva Liu / AWS 3 Tier Web Application -- Root stack 2021 Feb
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed
+    Type: String
+    Default: AWS-Service
+  S3DeploymentBucket:
+    Description: AWS S3 Deployment bucket to hold deployment files
+    Type: String
+    Default: 'aws-configs-bucket-uw2'
+  S3BucketPrefix:
+    Description: AWS S3 bucket prefix
+    Type: String
+    Default: 'Deployment/App/WebApp'
+
+Resources:
+  WebTierStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL:
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/web_tier/web_tier_top_level.yml"
+      Parameters:
+        S3DeploymentBucket: !Ref S3DeploymentBucket
+        S3BucketPrefix: !Ref S3BucketPrefix
+        EnvironmentName: !Ref EnvironmentName
+      Tags:
+        - Key: Name
+          Value: WebTierStack   
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
+        - Key: SERVICE_ENV
+          Value: !Ref EnvironmentName
+
+#  AppTierStack:
+#    Type: AWS::CloudFormation::Stack
+#    DependsOn: DataTierStack
+#    Properties:
+#      TemplateURL:
+#        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/app_tier/app_tier_top_level.yml"
+#      Parameters:
+#        S3DeploymentBucket: !Ref S3DeploymentBucket
+#        S3BucketPrefix: !Ref S3BucketPrefix
+#        EnvironmentName: !Ref EnvironmentName
+#      Tags:
+#        - Key: Name
+#          Value: AppTierStack   
+#        - Key: SERVICE_CREATOR
+#          Value: eliu
+#        - Key: SERVICE_CATEGORY
+#          Value: APP
+#
+#  DataTierStack:
+#    Type: AWS::CloudFormation::Stack
+#    Properties:
+#      TemplateURL:
+#        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/data_tier/data_tier_top_level.yml"
+#      Parameters:
+#        S3DeploymentBucket: !Ref S3DeploymentBucket
+#        S3BucketPrefix: !Ref S3BucketPrefix
+#        EnvironmentName: !Ref: EnvironmentName
+#      Tags:
+#        - Key: Name
+#          Value: DataTierStack
+#        - Key: SERVICE_CREATOR
+#          Value: eliu
+#        - Key: SERVICE_CATEGORY
+#          Value: APP
