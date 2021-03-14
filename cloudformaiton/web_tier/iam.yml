@@ -2,42 +2,94 @@ Description: >
     Eva Liu / AWS 3 Tier Web Application -- web tier 2021 Feb
 
 Parameters:
-    EnvironmentName:
-        Description: An environment name that will be prefixed
-        Type: String
+  EnvironmentName:
+    Description: An environment name that will be prefixed
+    Type: String
+  S3DeploymentBucket:
+    Description: AWS S3 Deployment bucket to hold deployment files
+    Type: String
+  S3BucketPrefix:
+    Description: AWS S3 bucket prefix
+    Type: String
 
 Resources:
-    EC2BucketsInstanceProfile:
-      Type: AWS::IAM::InstanceProfile
-      Properties:
-        Path: "/"
-        Roles:
+  EC2BucketsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
         - Ref: EC2AccessRole
 
-    EC2BucketsPolicy:
-      Type: AWS::IAM::Policy
-      Properties:
-        PolicyName: EC2BucketsPolicy
-        PolicyDocument:
-          Statement:
-          - Effect: Allow
+  EC2BucketsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: EC2BucketsPolicy
+      PolicyDocument:
+        Statement:
+          - Sid: S3BucketList
+            Effect: Allow
             Action:
-            - s3:List*
-            Resource: "*"
-        Roles:
+              - s3:List*
+            Resource:
+              - !Sub "arn:aws:s3:::${S3DeploymentBucket}"
+              - !Sub "arn:aws:s3:::${S3DeploymentBucket}/*"
+              - !Sub "arn:aws:s3:::www.evaliu.info"
+              - !Sub "arn:aws:s3:::www.evaliu.info/*"
+          - Sid: S3ReadAccess
+            Effect: Allow
+            Action:
+              - s3:*Object
+            Resource:
+              - !Sub "arn:aws:s3:::${S3DeploymentBucket}/${S3BucketPrefix}/*"
+              - !Sub "arn:aws:s3:::www.evaliu.info/*"
+      Roles:
         - Ref: EC2AccessRole
 
-    EC2AccessRole:
-      Type: AWS::IAM::Role
-      Properties:
-        AssumeRolePolicyDocument:
-          Version: '2012-10-17'
-          Statement:
+  EC2SQSAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: EC2SQSAccessPolicy
+      PolicyDocument:
+        Statement:
+          - Sid: S3BucketList
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+              - sqs:GetQueueAttributes
+            Resource:
+              - !Sub "arn:aws:sqs:*:${AWS::AccountId}:aws-webapp-queue"
+              - !Sub "arn:aws:sqs:*:${AWS::AccountId}:test-aws-web-queue"
+      Roles:
+        - Ref: EC2AccessRole
+
+  EC2AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - !Sub 'arn:aws:iam::${AWS::AccountId}:policy/AWSKMSGrantPolicy'
+      RoleName: 'AWSWebAppEC2Role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
           - Effect: Allow
             Principal:
               Service:
               - ec2.amazonaws.com
             Action:
             - sts:AssumeRole
-        Path: "/"
+      Path: "/"
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
+        - Key: SERVICE_ENV
+          Value: !Ref EnvironmentName
 
+Outputs:
+  EC2ProfileName:
+    Description: EC2 Profile Name
+    Value: !Ref EC2BucketsInstanceProfile
+  EC2RoleName:
+    Description: EC2 Role Name
+    Value: !Ref EC2AccessRole

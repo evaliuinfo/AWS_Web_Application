@@ -2,32 +2,61 @@ Description: >
     Eva Liu / AWS 3 Tier Web Application -- web tier 2021 Feb
 
 Parameters:
-    EnvironmentName:
-        Description: An environment name that will be prefixed
-        Type: String
+  EnvironmentName:
+    Description: An environment name that will be prefixed
+    Type: String
+  S3DeploymentBucket:
+    Description: AWS S3 Deployment bucket to hold deployment files
+    Type: String
+  S3BucketPrefix:
+    Description: AWS S3 bucket prefix
+    Type: String
 
 Resources:
   WebTierIAM:
+    Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL:
-        !Sub: "https://s3.amazonaws.com/${TemplatePath}/iam.yml"
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/web_tier/iam.yml"
       Parameters:
-        S3BucketName: !Ref: S3BucketName
-        EnvironmentName: !Ref: EnvironmentName
+        S3DeploymentBucket: !Ref S3DeploymentBucket
+        S3BucketPrefix: !Ref S3BucketPrefix
+        EnvironmentName: !Ref EnvironmentName
       Tags:
         - Key: Name
-          Value: IAMStack   
+          Value: WebTierIAMStack   
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
 
   WebTierNonIAMStack:
-    DependsOn: WebTierIAM
+    Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL:
-        !Sub: "https://s3.amazonaws.com/${TemplatePath}/non_iam.yml"
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/web_tier/non_iam.yml"
       Parameters:
-        S3BucketName: !Ref: S3BucketName
-        EnvironmentName: !Ref: EnvironmentName
+        EnvironmentName: !Ref EnvironmentName
+        InfraEnvName: AWS-INFRA
+        EC2InstanceProfile: !GetAtt WebTierIAM.Outputs.EC2ProfileName
       Tags:
         - Key: Name
-          Value: IAMStack   
+          Value: WebTierNonIAMStack
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
 
-
+Outputs:
+  EC2IAMRole:
+    Description: Web Tier EC2 Role
+    Value: !GetAtt WebTierIAM.Outputs.EC2RoleName
+  EC2InstanceProfile:
+    Description: Web Tier EC2 Instance Profile
+    Value: !GetAtt WebTierIAM.Outputs.EC2ProfileName
+  WebTierELBDns:
+    Description: Web Tier ELB DNS Name
+    Value: !GetAtt WebTierNonIAMStack.Outputs.WebLBDnsName
+  WebTierELBName:
+    Description: Web Tier ELB Name
+    Value: !GetAtt WebTierNonIAMStack.Outputs.WebLBName

@@ -2,138 +2,190 @@ Description: >
     Eva Liu / AWS 3 Tier Web Application -- web tier 2021 Feb
 
 Parameters:
-    EnvironmentName:
-        Description: An environment name that will be prefixed
-        Type: String
+  EnvironmentName:
+    Description: An environment name that will be prefixed
+    Type: String
+  InfraEnvName:
+    Description: AWS Infrastructure Env name
+    Type: String
+  EC2InstanceProfile:
+    Description: EC2 Instace Profile name
+    Type: String
 
 Resources:
-    LBSecGroup:
-        Type: AWS::EC2::SecurityGroup
-        Properties:
-            GroupDescription: Allow http to our load balancer
-            VpcId: 
-              Fn::ImportValue:
-                !Sub "${EnvironmentName}-VPCID"
-            SecurityGroupIngress:
-            - IpProtocol: tcp
-              FromPort: 80
-              ToPort: 80
-              CidrIp: 0.0.0.0/0
-            SecurityGroupEgress:
-            - IpProtocol: tcp
-              FromPort: 80
-              ToPort: 80
-              CidrIp: 0.0.0.0/0
+  LBSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our load balancer
+      VpcId: 
+        Fn::ImportValue:
+          !Sub "${InfraEnvName}-VPCID"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
 
-    WebServerSecGroup:
-        Type: AWS::EC2::SecurityGroup
-        Properties:
-            GroupDescription: Allow http to our hosts and SSH from local
-            VpcId: 
-              Fn::ImportValue:
-                !Sub "${EnvironmentName}-VPCID"
-            SecurityGroupIngress:
-            - IpProtocol: tcp
-              FromPort: 80
-              ToPort: 80
-              CidrIp: 0.0.0.0/0
-            - IpProtocol: tcp
-              FromPort: 22
-              ToPort: 22
-              CidrIp: 0.0.0.0/0
-            SecurityGroupEgress:
-            - IpProtocol: tcp
-              FromPort: 0
-              ToPort: 65535
-              CidrIp: 0.0.0.0/0
+  WebServerSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our hosts and SSH from local
+      VpcId: 
+        Fn::ImportValue:
+          !Sub "${InfraEnvName}-VPCID"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
 
-    WebAppLaunchConfig:
-        Type: AWS::AutoScaling::LaunchConfiguration
-        Properties:
-          UserData:
-            Fn::Base64: !Sub |
-              #!/bin/bash
-              apt-get update -y
-              apt-get install unzip awscli -y
-              curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
-              apt-get install -y nodejs
-              apt-get install -y build-essential
-              mkdir web_app
-              cd web_app
-              npm install aws-sdk
+  WebLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          echo "AWS Env: ${EnvironmentName}"
+          apt-get update -y
+          apt-get install unzip awscli -y
+          curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+          apt-get install -y nodejs
+          apt-get install -y build-essential
+          mkdir web_app
+          cd web_app
+          npm install aws-sdk
+          aws s3 cp --recursive s3://www.evaliu.info/ .
+          node index.js > console.log &
+      ImageId: ami-005bdb005fb00e791
+      KeyName: web_app_test
+      IamInstanceProfile: ec2_iam_debug_demo #!Ref EC2InstanceProfile
+      SecurityGroups:
+        - !Ref WebServerSecGroup
+      InstanceType: t3.small
+      BlockDeviceMappings:
+        - DeviceName: "/dev/xvda"
+          Ebs:
+            VolumeSize: 15
+            VolumeType: 'gp2'
+        - DeviceName: "/dev/xvdf"
+          Ebs:
+            VolumeSize: 30
+            VolumeType: 'gp2'
 
-              aws s3 cp --recursive s3://www.evaliu.info/ .
-              node index.js > console.log &
-          ImageId: ami-005bdb005fb00e791
-          IamInstanceProfile:
-            Ref: ListS3BucketsInstanceProfile
-          SecurityGroups:
-          - Ref: WebServerSecGroup
-          InstanceType: t3.small
-          BlockDeviceMappings:
-          - DeviceName: "/dev/sdk"
-            Ebs:
-              VolumeSize: '15'
+  WebAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub "${InfraEnvName}-PUB-NETS"
+      LaunchConfigurationName: !Ref WebLaunchConfig
+      DesiredCapacity: '2'
+      MinSize: '2'
+      MaxSize: '5'
+      TargetGroupARNs:
+        - !Ref WebTargetGroup    
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+          PropagateAtLaunch: true
+        - Key: SERVICE_CATEGORY
+          Value: APP
+          PropagateAtLaunch: true
 
-    WebAppGroup:
-        Type: AWS::AutoScaling::AutoScalingGroup
-        Properties:
-          VPCZoneIdentifier:
-          - Fn::ImportValue:
-              !Sub "${EnvironmentName}-PRIV-NETS"
-          LaunchConfigurationName:
-            Ref: WebAppLaunchConfig
-          MinSize: '3'
-          MaxSize: '5'
-          TargetGroupARNs:
-          - Ref: WebAppTargetGroup
-          
+  WebLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - Fn::ImportValue: !Sub "${InfraEnvName}-PUB1-SN"
+        - Fn::ImportValue: !Sub "${InfraEnvName}-PUB2-SN"
+      SecurityGroups:
+        - !Ref LBSecGroup
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
 
-    WebAppLB:
-        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-        Properties:
-          Subnets:
-          - Fn::ImportValue: !Sub "${EnvironmentName}-PUB1-SN"
-          - Fn::ImportValue: !Sub "${EnvironmentName}-PUB2-SN"
-          SecurityGroups:
-          - Ref: LBSecGroup
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
+      LoadBalancerArn: !Ref WebLB
+      Port: 80
+      Protocol: HTTP
 
-    Listener:
-        Type: AWS::ElasticLoadBalancingV2::Listener
-        Properties:
-          DefaultActions:
-          - Type: forward
-            TargetGroupArn:
-              Ref: WebAppTargetGroup
-          LoadBalancerArn:
-            Ref: WebAppLB
-          Port: '80'
-          Protocol: HTTP
+  ALBListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: [/]
+      ListenerArn: !Ref Listener
+      Priority: 1
 
-    ALBListenerRule:
-        Type: AWS::ElasticLoadBalancingV2::ListenerRule
-        Properties:
-          Actions:
-          - Type: forward
-            TargetGroupArn: !Ref 'WebAppTargetGroup'
-          Conditions:
-          - Field: path-pattern
-            Values: [/]
-          ListenerArn: !Ref 'Listener'
-          Priority: 1
+  WebTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 9
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${InfraEnvName}-VPCID"
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
 
-    WebAppTargetGroup:
-        Type: AWS::ElasticLoadBalancingV2::TargetGroup
-        Properties:
-          HealthCheckIntervalSeconds: 10
-          HealthCheckPath: /
-          HealthCheckProtocol: HTTP
-          HealthCheckTimeoutSeconds: 8
-          HealthyThresholdCount: 2
-          Port: 80
-          Protocol: HTTP
-          UnhealthyThresholdCount: 5
-          VpcId:
-            Fn::ImportValue:
-                !Sub "${EnvironmentName}-VPCID"
-
+Outputs:
+  WebAutoScalingGroup:
+    Description: Web Tier Auto Scaling Group
+    Value: !Ref WebAutoScalingGroup
+  WebLBName:
+    Description: Web Tier Load Balancer Name
+    Value: !GetAtt WebLB.LoadBalancerName
+  WebLBDnsName:
+    Description: Web Tier Load Balancer DNS Value
+    Value: !GetAtt WebLB.DNSName
