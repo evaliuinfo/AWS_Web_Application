@@ -76,18 +76,19 @@ Resources:
     Properties:
       UserData:
         Fn::Base64: !Sub |
-          #!/bin/bash
-          echo "AWS Env: ${EnvironmentName}"
+          #!/bin/bash -ex
           apt-get update -y
-          apt-get install unzip awscli -y
+          apt install awscli -y
+          apt install heat-cfntools -y
           curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
           apt-get install -y nodejs
           apt-get install -y build-essential
+          npm install aws-sdk
           mkdir web_app
           cd web_app
-          npm install aws-sdk
           aws s3 cp --recursive s3://www.evaliu.info/ .
           node index.js > console.log &
+          cfn-init -e 0 --stack ${AWS::StackName} --resource WebAutoScalingGroup --region ${AWS::Region}
       ImageId: ami-005bdb005fb00e791
       KeyName: web_app_test
       IamInstanceProfile: ec2_iam_debug_demo #!Ref EC2InstanceProfile
@@ -106,6 +107,16 @@ Resources:
 
   WebAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
+    CreationPolicy:
+      ResourceSignal: 
+        Timeout: 'PT15M'
+        Count: 2
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MaxBatchSize: 1
+        MinInstancesInService: 1
+        PauseTime: 'PT15M'
+        WaitOnResourceSignals: true
     Properties:
       VPCZoneIdentifier:
         - Fn::ImportValue: !Sub "${InfraEnvName}-PUB-NETS"
