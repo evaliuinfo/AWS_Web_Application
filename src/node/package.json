@@ -1,0 +1,18 @@
+{
+  "name": "eva_liu",
+  "version": "1.0.0",
+  "description": "AWS 3 tier web application code",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "data",
+    "web"
+  ],
+  "author": "Eva Liu",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
