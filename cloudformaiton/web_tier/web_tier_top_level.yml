@@ -36,6 +36,8 @@ Resources:
       TemplateURL:
         !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/web_tier/non_iam.yml"
       Parameters:
+        S3DeploymentBucket: !Ref S3DeploymentBucket
+        S3BucketPrefix: !Ref S3BucketPrefix
         EnvironmentName: !Ref EnvironmentName
         InfraEnvName: AWS-INFRA
         EC2InstanceProfile: !GetAtt WebTierIAM.Outputs.EC2ProfileName

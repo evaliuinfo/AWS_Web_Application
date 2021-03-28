@@ -2,6 +2,12 @@ Description: >
     Eva Liu / AWS 3 Tier Web Application -- web tier 2021 Feb
 
 Parameters:
+  S3DeploymentBucket:
+    Description: AWS S3 Deployment bucket to hold deployment files
+    Type: String
+  S3BucketPrefix:
+    Description: AWS S3 bucket prefix
+    Type: String
   EnvironmentName:
     Description: An environment name that will be prefixed
     Type: String
@@ -97,15 +103,8 @@ Resources:
           Fn::Base64: !Sub |
             #!/bin/bash 
             apt-get update -y
-            curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
-            apt-get install -y nodejs
-            apt-get install -y build-essential
-            npm install aws-sdk
-            mkdir web_app
-            cd web_app
-            aws s3 cp --recursive s3://www.evaliu.info/ .
-            node index.js > console.log &
-            /usr/local/bin/cfn-init -e $? --stack ${AWS::StackName} --resource WebAutoScalingGroup --region ${AWS::Region}
+            aws s3 cp s3://${S3DeploymentBucket}/${S3BucketPrefix}/source/bootstrap/user_data.sh .
+            user_data.sh
 
   WebAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
