@@ -1,0 +1,130 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation Sample Template DynamoDB_Table, This template demonstrates
+  the creation of a DynamoDB table.  **WARNING** This template creates an Amazon
+  DynamoDB table. You will be billed for the AWS resources used if you create a
+  stack from this template.
+
+Parameters:
+  BillingMode:
+    Description: Specify how you are charged for read and write throughput and how you manage capacity.
+      PROVISIONED - PROVISIONED sets the billing mode to Provisioned Mode. PAY_PER_REQUEST - We recommend 
+      using PAY_PER_REQUEST for unpredictable workloads. PAY_PER_REQUEST sets the billing mode to On-Demand.
+    Type: String
+    Default: PROVISIONED
+    AllowedValues:
+      - PROVISIONED
+      - PAY_PER_REQUEST
+  HashKeyElementName:
+    Description: HashType PrimaryKey Name
+    Type: String
+    AllowedPattern: '[a-zA-Z0-9]*'
+    MinLength: '1'
+    MaxLength: '2048'
+    ConstraintDescription: must contain only alphanumberic characters
+  HashKeyElementType:
+    Description: HashType PrimaryKey Type
+    Type: String
+    Default: S
+    AllowedPattern: '[S|N]'
+    MinLength: '1'
+    MaxLength: '1'
+    ConstraintDescription: must be either S or N
+  SecondAttributeName:
+    Description: HashType Secondary key Name
+    Type: String
+    Default: NONE
+    AllowedPattern: '[a-zA-Z0-9]*'
+    MinLength: '1'
+    MaxLength: '2048'
+    ConstraintDescription: must contain only alphanumberic characters
+  SecondAttributeType:
+    Description: HashType PrimaryKey Type
+    Type: String
+    Default: S
+    AllowedPattern: '[S|N]'
+    MinLength: '1'
+    MaxLength: '1'
+    ConstraintDescription: must be either S or N
+  TableDescriptor:
+    Description: DynamoDB table name descriptor
+    Type: String
+    Default: 'testdynamo'
+    AllowedPattern: '[a-zA-Z0-9]*'
+  PointInTimeRecoveryEnabled:
+    Description: Indicates whether point in time recovery is enabled or disabled on the table.
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  ReadCapacityUnits:
+    Description: Provisioned read throughput
+    Type: Number
+    Default: '5'
+    MinValue: '5'
+    MaxValue: '10000'
+    ConstraintDescription: must be between 5 and 10000
+  WriteCapacityUnits:
+    Description: Provisioned write throughput
+    Type: Number
+    Default: '10'
+    MinValue: '5'
+    MaxValue: '10000'
+    ConstraintDescription: must be between 5 and 10000
+
+Conditions:
+  NeedSecondKey: !Not
+    - !Equals
+      - !Ref SecondAttributeName
+      - NONE
+  ProvisionedTable: !Equals
+    - !Ref BillingMode
+    - PROVISIONED
+
+Resources:
+  DynamoDBTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: !Sub 'aws-infra-${TableDescriptor}'
+      BillingMode: !Ref BillingMode
+      AttributeDefinitions:
+        - AttributeName: !Ref HashKeyElementName
+          AttributeType: !Ref HashKeyElementType
+        - AttributeName: !If 
+            - NeedSecondKey
+            - !Ref SecondAttributeName
+            - !Ref "AWS::NoValue"
+          AttributeType: !If
+            - NeedSecondKey
+            - !Ref SecondAttributeType
+            - !Ref "AWS::NoValue"
+      KeySchema:
+        - AttributeName: !Ref HashKeyElementName
+          KeyType: HASH
+        - AttributeName: !If 
+            - NeedSecondKey
+            - !Ref SecondAttributeName
+            - !Ref "AWS::NoValue"
+          KeyType: RANGE
+      PointInTimeRecoveryEnabled: !Ref PointInTimeRecoveryEnabled
+      ProvisionedThroughput:
+        ReadCapacityUnits: !If
+          - ProvisionedTable
+          - !Ref ReadCapacityUnits
+          - !Ref "AWS::NoValue"
+        WriteCapacityUnits: !If
+          - ProvisionedTable
+          - !Ref WriteCapacityUnits
+          - !Ref "AWS::NoValue"
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: INFRA
+
+Outputs:
+  TableName:
+    Value: !Ref DynamoDBTable
+    Description: Table name of the newly created DynamoDB table
