@@ -1,5 +1,5 @@
 Description: >
-    AWS 3 Tier Web Application -- database tier 2021 Feb
+    Eva Liu / AWS 3 Tier Web Application -- app tier 2021 May
 
 Parameters:
   EnvironmentName:
@@ -11,37 +11,55 @@ Parameters:
   S3BucketPrefix:
     Description: AWS S3 bucket prefix
     Type: String
+  DynamoDBTableName:
+    Description: DynamoDB table name for database access
+    Type: String
+  SQSInvokeArn:
+    Description: Source SQS Arn that triggers Lambda function
+    Type: String
 
 Resources:
-  DatabaseTierNonIAMStack:
+  AppTierIAM:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL:
-        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/database_tier/non_iam.yml"
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/app_tier/iam.yml"
       Parameters:
         S3DeploymentBucket: !Ref S3DeploymentBucket
         S3BucketPrefix: !Ref S3BucketPrefix
         EnvironmentName: !Ref EnvironmentName
-        InfraEnvName: AWS-INFRA
-        EC2InstanceProfile: !GetAtt WebTierIAM.Outputs.EC2ProfileName
       Tags:
         - Key: Name
-          Value: WebTierNonIAMStack
+          Value: AppTierIAMStack
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
+
+  AppTierNonIAMStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL:
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/app_tier/non_iam.yml"
+      Parameters:
+        S3DeploymentBucket: !Ref S3DeploymentBucket
+        S3BucketPrefix: !Ref S3BucketPrefix
+        SQSInvokeArn: !Ref SQSInvokeArn
+        EnvironmentName: !Ref EnvironmentName
+        LambdaExecutionRole: !GetAtt AppTierIAM.Outputs.LambdaRoleName
+        DynamoDBTableName: !Ref DynamoDBTableName
+      Tags:
+        - Key: Name
+          Value: AppTierNonIAMStack
         - Key: SERVICE_CREATOR
           Value: eliu
         - Key: SERVICE_CATEGORY
           Value: APP
 
 Outputs:
-  EC2IAMRole:
+  LambdaIAMRole:
     Description: Web Tier EC2 Role
-    Value: !GetAtt WebTierIAM.Outputs.EC2RoleName
-  EC2InstanceProfile:
-    Description: Web Tier EC2 Instance Profile
-    Value: !GetAtt WebTierIAM.Outputs.EC2ProfileName
-  WebTierELBDns:
-    Description: Web Tier ELB DNS Name
-    Value: !GetAtt WebTierNonIAMStack.Outputs.WebLBDnsName
-  WebTierELBName:
+    Value: !GetAtt AppTierIAM.Outputs.LambdaRoleName
+  LambdaFunctionName:
     Description: Web Tier ELB Name
-    Value: !GetAtt WebTierNonIAMStack.Outputs.WebLBName
+    Value: !GetAtt AppTierNonIAMStack.Outputs.LambdaFunctionName

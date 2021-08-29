@@ -1,0 +1,345 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation Sample Template Lambda Function, This template demonstrates
+  the creation of a Lambda Function.  **WARNING** This template creates an Amazon
+  Lambda. You will be billed for the AWS resources used if you create a
+  stack from this template.
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed
+    Type: String
+  S3Bucket:
+    Description: An Amazon S3 bucket in the same AWS Region as your function. The bucket can be
+      in a different AWS account.
+    Type: String
+  S3PrefixKey:
+    Description: The Amazon S3 key of the deployment package.
+    Type: String
+  S3ObjectVersion:
+    Description: For versioned objects, the version of the deployment package object to use.
+    Type: String
+    Default: 'NONE'
+  LambdaDescriptor:
+    Description: Lambda Function name descriptor
+    Type: String
+    AllowedPattern: '[a-zA-Z0-9]*'
+  LambdaDescription:
+    Description: Lambda Function description
+    Type: String
+    Default: 'NONE'
+    AllowedPattern: '[a-zA-Z0-9\s]*'
+  EnvironmentVariables:
+    Description: Environment variables that are accessible from function code during execution.
+      Please use key-value pair for each environment variable,
+      eg, LOG_LEVEL=debug;TIME_OUT=30;NONE;NONE
+    Type: String
+    Default: "NONE;NONE;NONE;NONE"
+  Layers:
+    Description: A list of function layers to add to the function's execution environment. 
+      Specify each layer by its ARN, including the version.
+      eg, arn:aws:lambda:us-east-2:123456789012:layer:my-layer;NONE;NONE;NONE
+    Type: String
+    Default: "NONE;NONE;NONE;NONE"
+  Handler:
+    Description: The name of the method within your code that Lambda calls to execute your function. 
+      The format includes the file name. It can also include namespaces and other qualifiers,
+      depending on the runtime.
+    Type: String
+    Default: 'NONE'
+  KmsKeyArn:
+    Description: The ARN of the AWS Key Management Service (AWS KMS) key that's used to encrypt
+      your function's environment variables. If it's not provided, AWS Lambda uses a default
+      service key.
+    Type: String
+    Default: 'NONE'
+  MemorySize:
+    Description: The amount of memory available to the function at runtime. Increasing the function
+      memory also increases its CPU allocation. The default value is 128 MB. The value can be any
+      multiple of 1 MB.
+    Type: Number
+    MinValue: 128
+    MaxValue: 512
+    Default: 128
+  PackageType:
+    Description: The type of deployment package. Set to Image for container image and set Zip for
+      .zip file archive.
+    Type: String
+    Default: Zip
+    AllowedValues:
+      - Image
+      - Zip
+  ReservedConcurrentExecutions:
+    Description: The number of simultaneous executions to reserve for the function.
+    Type: Number
+    Default: 10
+  Role:
+    Description: The Amazon Resource Name (ARN) of the function's execution role.
+    Type: String
+  Runtime:
+    Description: The identifier of the function's runtime.
+    Type: String
+    Default: python3.7
+    AllowedValues:
+      - java8
+      - java8.al2
+      - java11
+      - nodejs12.x
+      - nodejs14.x
+      - python3.6
+      - python3.7
+      - python3.8
+      - ruby2.7
+  SNSInvokeArn:
+    Description: Source SNS Arn that triggers Lambda function
+    Type: String
+    Default: 'NONE'
+  SQSInvokeArn:
+    Description: Source SQS Arn that triggers Lambda function
+    Type: String
+    Default: 'NONE'
+  Timeout:
+    Description: The amount of time that Lambda allows a function to run before stopping it. The
+      default is 3 seconds. The maximum allowed value is 900 seconds. 
+    Type: Number
+    Default: 300
+  LambdaSecurityGroupIds:
+    Description: A list of VPC security groups IDs.
+    Type: String
+    Default: "NONE;NONE;NONE;NONE"
+  LambdaSubnetIds:
+    Description: A list of VPC subnet IDs.
+    Type: String
+    Default: "NONE;NONE;NONE;NONE"
+
+Conditions:
+  UseS3Versioning: !Not
+    - !Equals
+      - !Ref S3ObjectVersion
+      - NONE
+  UseKmsKey: !Not
+    - !Equals
+      - !Ref KmsKeyArn
+      - NONE
+  EnableSQSTrigger: !Not
+    - !Equals
+      - !Ref SQSInvokeArn
+      - NONE
+  EnableSNSTrigger: !Not
+    - !Equals
+      - !Ref SNSInvokeArn
+      - NONE
+  AssignFirstLayer: !Not
+    - !Equals
+      - !Select
+        - 0
+        - !Split
+          - ';'
+          - !Ref Layers
+      - NONE
+  AssignSecondLayer: !Not
+    - !Equals
+      - !Select
+        - 1
+        - !Split
+          - ';'
+          - !Ref Layers
+      - NONE
+  AssignThirdLayer: !Not
+    - !Equals
+      - !Select
+        - 2
+        - !Split
+          - ';'
+          - !Ref Layers
+      - NONE
+  AssignFourthLayer: !Not
+    - !Equals
+      - !Select
+        - 3
+        - !Split
+          - ';'
+          - !Ref Layers
+      - NONE
+  AssignFirstSecurityGroup: !Not
+    - !Equals
+      - !Select
+        - 0
+        - !Split
+          - ';'
+          - !Ref LambdaSecurityGroupIds
+      - NONE
+  AssignSecondSecurityGroup: !Not
+    - !Equals
+      - !Select
+        - 1
+        - !Split
+          - ';'
+          - !Ref LambdaSecurityGroupIds
+      - NONE
+  AssignThirdSecurityGroup: !Not
+    - !Equals
+      - !Select
+        - 2
+        - !Split 
+          - ';'
+          - !Ref LambdaSecurityGroupIds
+      - NONE
+  AssignFourthSecurityGroup: !Not
+    - !Equals
+      - !Select
+        - 3
+        - !Split 
+          - ';'
+          - !Ref LambdaSecurityGroupIds
+      - NONE
+  AssignFirstSubnet: !Not
+    - !Equals
+      - !Select
+        - 0
+        - !Split 
+          - ';'
+          - !Ref LambdaSubnetIds
+      - NONE
+  AssignSecondSubnet: !Not
+    - !Equals
+      - !Select
+        - 1
+        - !Split
+          - ';'
+          - !Ref LambdaSubnetIds
+      - NONE
+  AssignThirdSubnet: !Not
+    - !Equals
+      - !Select
+        - 2
+        - !Split
+          - ';'
+          - !Ref LambdaSubnetIds
+      - NONE
+  AssignFourthSubnet: !Not
+    - !Equals
+      - !Select
+        - 3
+        - !Split
+          - ';'
+          - !Ref LambdaSubnetIds
+      - NONE
+
+Resources:
+  LambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: !Sub '${EnvironmentName}-${LambdaDescriptor}'
+      Description: !Ref LambdaDescription
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3PrefixKey
+        S3ObjectVersion: !If
+          - UseS3Versioning
+          - !Ref S3ObjectVersion
+          - !Ref "AWS::NoValue"
+      Environment:
+        Variables:
+          ENV_VAR1: !Ref EnvironmentVariables
+            #ENV_VAR1: !Select [0, [!Split [';', !Ref EnvironmentVariables]]]
+            #ENV_VAR2: !Select [1, [!Split [';', !Ref EnvironmentVariables]]]
+            #ENV_VAR3: !Select [2, [!Split [';', !Ref EnvironmentVariables]]]
+            #ENV_VAR4: !Select [3, [!Split [';', !Ref EnvironmentVariables]]]
+      Layers: 
+        - !If
+          - AssignFirstLayer
+          - !Select [0, [!Split [';', !Ref Layers]]]
+          - !Ref "AWS::NoValue"
+        - !If
+          - AssignSecondLayer
+          - !Select [1, [!Split [';', !Ref Layers]]]
+          - !Ref "AWS::NoValue"
+        - !If
+          - AssignThirdLayer
+          - !Select [2, [!Split [';', !Ref Layers]]]
+          - !Ref "AWS::NoValue"
+        - !If
+          - AssignFourthLayer
+          - !Select [3, [!Split [';', !Ref Layers]]]
+          - !Ref "AWS::NoValue"
+      Handler: !Ref Handler
+      KmsKeyArn: !If
+        - UseKmsKey
+        - !Ref KmsKeyArn
+        - !Ref "AWS::NoValue"
+      MemorySize: !Ref MemorySize
+      PackageType: !Ref PackageType
+      ReservedConcurrentExecutions: !Ref ReservedConcurrentExecutions
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/${Role}"
+      Runtime: !Ref Runtime
+      Timeout: !Ref Timeout
+      VpcConfig:
+        SecurityGroupIds:
+          - !If
+            - AssignFirstSecurityGroup
+            - !Select [0, [!Split [';', !Ref LambdaSecurityGroupIds]]]
+            - !Ref "AWS::NoValue"
+          - !If
+            - AssignSecondSecurityGroup
+            - !Select [1, [!Split [';', !Ref LambdaSecurityGroupIds]]]
+            - !Ref "AWS::NoValue"
+          - !If
+            - AssignThirdSecurityGroup
+            - !Select [2, [!Split [';', !Ref LambdaSecurityGroupIds]]]
+            - !Ref "AWS::NoValue"
+          - !If
+            - AssignFourthSecurityGroup
+            - !Select [3, [!Split [';', !Ref LambdaSecurityGroupIds]]]
+            - !Ref "AWS::NoValue"
+        SubnetIds:
+          - !If
+            - AssignFirstSubnet
+            - !Select [0, [!Split [';', !Ref LambdaSubnetIds]]]
+            - !Ref "AWS::NoValue"
+          - !If
+            - AssignSecondSubnet
+            - !Select [1, [!Split [';', !Ref LambdaSubnetIds]]]
+            - !Ref "AWS::NoValue"
+          - !If
+            - AssignThirdSubnet
+            - !Select [2, [!Split [';', !Ref LambdaSubnetIds]]]
+            - !Ref "AWS::NoValue"
+          - !If
+            - AssignFourthSubnet
+            - !Select [3, [!Split [';', !Ref LambdaSubnetIds]]]
+            - !Ref "AWS::NoValue"
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
+        - Key: SERVICE_ENV
+          Value: !Ref EnvironmentName
+
+  SQSInvokePermission:
+    Condition: EnableSQSTrigger
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdaFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: sqs.amazonaws.com
+      SourceArn: !Ref SQSInvokeArn
+
+  SNSInvokePermission:
+    Condition: EnableSNSTrigger
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdaFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref SNSInvokeArn
+
+Outputs:
+  LambdaName:
+    Value: !Ref LambdaFunction
+    Description: Function name of the newly created Lambda
+  LambdaArn:
+    Value: !GetAtt LambdaFunction.Arn
+    Description: Function name of the newly created Lambda

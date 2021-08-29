@@ -1,5 +1,5 @@
 Description: >
-    Eva Liu / AWS 3 Tier Web Application -- web tier 2021 Feb
+    AWS 3 Tier Web Application -- web tier IAM stack 2021 Feb
 
 Parameters:
   EnvironmentName:

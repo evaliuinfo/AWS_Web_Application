@@ -7,6 +7,9 @@ Description: >-
   stack from this template.
 
 Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed
+    Type: String
   BillingMode:
     Description: Specify how you are charged for read and write throughput and how you manage capacity.
       PROVISIONED - PROVISIONED sets the billing mode to Provisioned Mode. PAY_PER_REQUEST - We recommend 
@@ -87,28 +90,29 @@ Resources:
   DynamoDBTable:
     Type: 'AWS::DynamoDB::Table'
     Properties:
-      TableName: !Sub 'aws-infra-${TableDescriptor}'
+      TableName: !Sub '${EnvironmentName}-${TableDescriptor}'
       BillingMode: !Ref BillingMode
       AttributeDefinitions:
         - AttributeName: !Ref HashKeyElementName
           AttributeType: !Ref HashKeyElementType
-        - AttributeName: !If 
-            - NeedSecondKey
-            - !Ref SecondAttributeName
-            - !Ref "AWS::NoValue"
-          AttributeType: !If
-            - NeedSecondKey
-            - !Ref SecondAttributeType
-            - !Ref "AWS::NoValue"
+        - !If 
+          - NeedSecondKey
+          - AttributeName: !Ref SecondAttributeName
+          - !Ref "AWS::NoValue"
+        - !If
+          - NeedSecondKey
+          - AttributeType: !Ref SecondAttributeType
+          - !Ref "AWS::NoValue"
       KeySchema:
         - AttributeName: !Ref HashKeyElementName
           KeyType: HASH
-        - AttributeName: !If 
-            - NeedSecondKey
-            - !Ref SecondAttributeName
-            - !Ref "AWS::NoValue"
-          KeyType: RANGE
-      PointInTimeRecoveryEnabled: !Ref PointInTimeRecoveryEnabled
+        - !If
+          - NeedSecondKey
+          - AttributeName: !Ref SecondAttributeName
+            KeyType: RANGE
+          - !Ref "AWS::NoValue"
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !Ref PointInTimeRecoveryEnabled
       ProvisionedThroughput:
         ReadCapacityUnits: !If
           - ProvisionedTable
@@ -122,7 +126,9 @@ Resources:
         - Key: SERVICE_CREATOR
           Value: eliu
         - Key: SERVICE_CATEGORY
-          Value: INFRA
+          Value: APP
+        - Key: SERVICE_ENV
+          Value: !Ref EnvironmentName
 
 Outputs:
   TableName:

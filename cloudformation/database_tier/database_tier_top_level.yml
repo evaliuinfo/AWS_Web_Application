@@ -1,5 +1,5 @@
 Description: >
-    AWS 3 Tier Web Application -- database tier 2021 Feb
+    Eva Liu / AWS 3 Tier Web Application -- database tier 2021 Feb
 
 Parameters:
   EnvironmentName:
@@ -13,7 +13,7 @@ Parameters:
     Type: String
 
 Resources:
-  DatabaseTierNonIAMStack:
+  DatabaseTier:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL:
@@ -22,8 +22,6 @@ Resources:
         S3DeploymentBucket: !Ref S3DeploymentBucket
         S3BucketPrefix: !Ref S3BucketPrefix
         EnvironmentName: !Ref EnvironmentName
-        InfraEnvName: AWS-INFRA
-        EC2InstanceProfile: !GetAtt WebTierIAM.Outputs.EC2ProfileName
       Tags:
         - Key: Name
           Value: WebTierNonIAMStack
@@ -33,15 +31,6 @@ Resources:
           Value: APP
 
 Outputs:
-  EC2IAMRole:
-    Description: Web Tier EC2 Role
-    Value: !GetAtt WebTierIAM.Outputs.EC2RoleName
-  EC2InstanceProfile:
-    Description: Web Tier EC2 Instance Profile
-    Value: !GetAtt WebTierIAM.Outputs.EC2ProfileName
-  WebTierELBDns:
-    Description: Web Tier ELB DNS Name
-    Value: !GetAtt WebTierNonIAMStack.Outputs.WebLBDnsName
-  WebTierELBName:
+  TableName:
     Description: Web Tier ELB Name
-    Value: !GetAtt WebTierNonIAMStack.Outputs.WebLBName
+    Value: !GetAtt DatabaseTier.Outputs.DynamoDBTableName

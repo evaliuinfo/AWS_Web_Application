@@ -1,5 +1,5 @@
 Description: >
-    AWS 3 Tier Web Application -- database tier 2021 Feb
+    AWS 3 Tier Web Application -- App tier Non-IAM stack, 2021 May
 
 Parameters:
   S3DeploymentBucket:
@@ -11,28 +11,31 @@ Parameters:
   EnvironmentName:
     Description: An environment name that will be prefixed
     Type: String
-  InfraEnvName:
-    Description: AWS Infrastructure Env name
+  DynamoDBTableName:
+    Description: DynamoDB table name for database access
     Type: String
-  EC2InstanceProfile:
-    Description: EC2 Instace Profile name
+  LambdaExecutionRole:
+    Description: Lambda Execution Role name
+    Type: String
+  SQSInvokeArn:
+    Description: Source SQS Arn that triggers Lambda function
     Type: String
 
 Resources:
-  WebTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  AppTierLambda:
+    Type: AWS::CloudFormation::Stack
     Properties:
-      HealthCheckIntervalSeconds: 10
-      HealthCheckPath: /
-      HealthCheckProtocol: HTTP
-      HealthCheckTimeoutSeconds: 9
-      HealthyThresholdCount: 2
-      Port: 80
-      Protocol: HTTP
-      UnhealthyThresholdCount: 5
-      VpcId:
-        Fn::ImportValue:
-          !Sub "${InfraEnvName}-VPCID"
+      TemplateURL:
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/template/AWS_Templates_Lambda.yml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        EnvironmentVariables: !Sub "TABLENAME=${DynamoDBTableName};NONE;NONE;NONE"
+        LambdaDescriptor: 'webapplambda'
+        S3Bucket: !Ref S3DeploymentBucket
+        S3PrefixKey: !Sub "${S3BucketPrefix}/source/lambda/code_package.zip"
+        Role: !Ref LambdaExecutionRole
+        Handler: webapi.lambda_handler
+        SQSInvokeArn: !Ref SQSInvokeArn
       Tags:
         - Key: SERVICE_CREATOR
           Value: eliu
@@ -40,12 +43,6 @@ Resources:
           Value: APP
 
 Outputs:
-  WebAutoScalingGroup:
+  LambdaFunctionName:
     Description: Web Tier Auto Scaling Group
-    Value: !Ref WebAutoScalingGroup
-  WebLBName:
-    Description: Web Tier Load Balancer Name
-    Value: !GetAtt WebLB.LoadBalancerName
-  WebLBDnsName:
-    Description: Web Tier Load Balancer DNS Value
-    Value: !GetAtt WebLB.DNSName
+    Value: !GetAtt AppTierLambda.Outputs.LambdaName

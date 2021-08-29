@@ -1,0 +1,138 @@
+Description: >
+    AWS 3 Tier Web Application -- App tier IAM stack, 2021 May
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed
+    Type: String
+  S3DeploymentBucket:
+    Description: AWS S3 Deployment bucket to hold deployment files
+    Type: String
+  S3BucketPrefix:
+    Description: AWS S3 bucket prefix
+    Type: String
+
+Resources:
+  LambdaS3Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaS3Policy
+      PolicyDocument:
+        Statement:
+          - Sid: S3BucketList
+            Effect: Allow
+            Action:
+              - s3:List*
+            Resource:
+              - !Sub "arn:aws:s3:::${S3DeploymentBucket}"
+              - !Sub "arn:aws:s3:::${S3DeploymentBucket}/*"
+              - !Sub "arn:aws:s3:::www.evaliu.info"
+              - !Sub "arn:aws:s3:::www.evaliu.info/*"
+          - Sid: S3ReadAccess
+            Effect: Allow
+            Action:
+              - s3:*Object
+            Resource:
+              - !Sub "arn:aws:s3:::${S3DeploymentBucket}/${S3BucketPrefix}/*"
+              - !Sub "arn:aws:s3:::www.evaliu.info/*"
+      Roles:
+        - Ref: LambdaExecutionRole
+
+  LambdaSQSAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaSQSAccessPolicy
+      PolicyDocument:
+        Statement:
+          - Sid: SQSInvokePolicy
+            Effect: Allow
+            Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:SendMessage
+              - sqs:GetQueueAttributes
+            Resource:
+              - !Sub "arn:aws:sqs:*:${AWS::AccountId}:aws-webapp-queue"
+              - !Sub "arn:aws:sqs:*:${AWS::AccountId}:test-aws-web-queue"
+      Roles:
+        - Ref: LambdaExecutionRole
+
+  LambdaCloudWatchPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaCWPolicy
+      PolicyDocument:
+        Statement:
+          - Sid: CloudWatchPolicy
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:DescribeLogGroups
+              - logs:PutLogEvents
+            Resource:
+              - !Sub "arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*"
+      Roles:
+        - Ref: LambdaExecutionRole
+
+  LambdaDynamoDBPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaDynamoDBAccessPolicy
+      PolicyDocument:
+        Statement:
+          - Sid: DynamoDBPolicy
+            Effect: Allow
+            Action:
+              - dynamodb:List*
+              - dynamodb:DescribeLimits
+              - dynamodb:DescribeTimeToLive
+              - dynamodb:DescribeReservedCapacity*
+            Resource: "*"
+          - Sid: AccessTable
+            Effect: Allow
+            Action:
+              - dynamodb:BatchGet*
+              - dynamodb:DescribeStream
+              - dynamodb:DescribeTable
+              - dynamodb:Get*
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:BatchWrite*
+              - dynamodb:CreateTable
+              - dynamodb:Delete*
+              - dynamodb:Update*
+              - dynamodb:PutItem
+            Resource: 
+              - !Sub "arn:aws:dynamodb:*:${AWS::AccountId}:table/*"
+      Roles:
+        - Ref: LambdaExecutionRole   
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - !Sub 'arn:aws:iam::${AWS::AccountId}:policy/AWSKMSGrantPolicy'
+      RoleName: 'AWSWebAppLambdaExcutionRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+            - sts:AssumeRole
+      Path: "/"
+      Tags:
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
+        - Key: SERVICE_ENV
+          Value: !Ref EnvironmentName
+
+Outputs:
+  LambdaRoleName:
+    Description: EC2 Role Name
+    Value: !Ref LambdaExecutionRole

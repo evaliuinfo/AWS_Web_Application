@@ -14,6 +14,10 @@ Parameters:
     Description: AWS S3 bucket prefix
     Type: String
     Default: 'Deployment/App/WebApp'
+  SQSInvokeArn:
+    Description: Source SQS Arn that triggers Lambda function
+    Type: String
+    Default: "arn:aws:sqs:us-west-2:450566581442:test-aws-web-queue"
 
 Resources:
   WebTierStack:
@@ -35,33 +39,35 @@ Resources:
         - Key: SERVICE_ENV
           Value: !Ref EnvironmentName
 
-#  AppTierStack:
-#    Type: AWS::CloudFormation::Stack
-#    DependsOn: DataTierStack
-#    Properties:
-#      TemplateURL:
-#        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/app_tier/app_tier_top_level.yml"
-#      Parameters:
-#        S3DeploymentBucket: !Ref S3DeploymentBucket
-#        S3BucketPrefix: !Ref S3BucketPrefix
-#        EnvironmentName: !Ref EnvironmentName
-#      Tags:
-#        - Key: Name
-#          Value: AppTierStack   
-#        - Key: SERVICE_CREATOR
-#          Value: eliu
-#        - Key: SERVICE_CATEGORY
-#          Value: APP
-#
+  AppTierStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: DataTierStack
+    Properties:
+      TemplateURL:
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/app_tier/app_tier_top_level.yml"
+      Parameters:
+        S3DeploymentBucket: !Ref S3DeploymentBucket
+        S3BucketPrefix: !Ref S3BucketPrefix
+        EnvironmentName: !Ref EnvironmentName
+        DynamoDBTableName: !GetAtt DataTierStack.Outputs.TableName
+        SQSInvokeArn: !Ref SQSInvokeArn
+      Tags:
+        - Key: Name
+          Value: AppTierStack   
+        - Key: SERVICE_CREATOR
+          Value: eliu
+        - Key: SERVICE_CATEGORY
+          Value: APP
+
   DataTierStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL:
-        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/data_tier/data_tier_top_level.yml"
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/database_tier/database_tier_top_level.yml"
       Parameters:
         S3DeploymentBucket: !Ref S3DeploymentBucket
         S3BucketPrefix: !Ref S3BucketPrefix
-        EnvironmentName: !Ref: EnvironmentName
+        EnvironmentName: !Ref EnvironmentName
       Tags:
         - Key: Name
           Value: DataTierStack

@@ -1,5 +1,5 @@
 Description: >
-    AWS 3 Tier Web Application -- database tier 2021 Feb
+    AWS 3 Tier Web Application -- database tier Non-IAM stack 2021 Feb
 
 Parameters:
   S3DeploymentBucket:
@@ -11,41 +11,27 @@ Parameters:
   EnvironmentName:
     Description: An environment name that will be prefixed
     Type: String
-  InfraEnvName:
-    Description: AWS Infrastructure Env name
-    Type: String
-  EC2InstanceProfile:
-    Description: EC2 Instace Profile name
-    Type: String
 
 Resources:
-  WebTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  DatabaseDynamoDB:
+    Type: AWS::CloudFormation::Stack
     Properties:
-      HealthCheckIntervalSeconds: 10
-      HealthCheckPath: /
-      HealthCheckProtocol: HTTP
-      HealthCheckTimeoutSeconds: 9
-      HealthyThresholdCount: 2
-      Port: 80
-      Protocol: HTTP
-      UnhealthyThresholdCount: 5
-      VpcId:
-        Fn::ImportValue:
-          !Sub "${InfraEnvName}-VPCID"
+      TemplateURL:
+        !Sub "https://${S3DeploymentBucket}.s3.us-west-2.amazonaws.com/${S3BucketPrefix}/cloudformation/template/AWS_Templates_DynamoDB.yml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        TableDescriptor: 'webapp'
+        HashKeyElementName: 'UserID'
+        HashKeyElementType: S
       Tags:
+        - Key: Name
+          Value: DatabaseDynamoDB
         - Key: SERVICE_CREATOR
           Value: eliu
         - Key: SERVICE_CATEGORY
           Value: APP
-
+  
 Outputs:
-  WebAutoScalingGroup:
-    Description: Web Tier Auto Scaling Group
-    Value: !Ref WebAutoScalingGroup
-  WebLBName:
-    Description: Web Tier Load Balancer Name
-    Value: !GetAtt WebLB.LoadBalancerName
-  WebLBDnsName:
-    Description: Web Tier Load Balancer DNS Value
-    Value: !GetAtt WebLB.DNSName
+  DynamoDBTableName:
+    Description: DynamoDB Table name
+    Value: !GetAtt DatabaseDynamoDB.Outputs.TableName
